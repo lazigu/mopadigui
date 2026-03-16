@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STAMP + MoPaDi Explorer</title>
+<link rel="icon" type="image/png" href="/static/logo.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
+<script type="module" src="https://unpkg.com/img-comparison-slider@8/dist/index.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
+<style>
+/* ── reset & base ─────────────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f0f2f9;color:#11142d;font-size:14px;line-height:1.5}
+
+/* ── top nav bar ──────────────────────────────────────────────────────────── */
+.navbar{
+  background:#fff;border-bottom:1px solid #e8eaf2;
+  display:flex;align-items:center;gap:0;padding:0 28px;height:80px;
+  position:sticky;top:0;z-index:100;
+  box-shadow:0 1px 4px rgba(0,0,0,.06)
+}
+.navbar-brand{display:flex;align-items:center;gap:10px;margin-right:32px}
+.navbar-brand img{height:64px;width:64px;border-radius:14px;object-fit:contain}
+.navbar-brand .brand-text{line-height:1.2}
+.navbar-brand .brand-title{font-size:1.4rem;font-weight:700;color:#11142d}
+.navbar-brand .brand-sub{font-size:.85rem;color:#808191}
+/* gear toggle button */
+#settings-toggle{
+  margin-left:auto;background:none;border:none;padding:6px 10px;border-radius:8px;
+  color:#808191;font-size:.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;
+  text-transform:uppercase;letter-spacing:.04em;transition:background .15s,color .15s
+}
+#settings-toggle:hover{background:#f5f6fa;color:#11142d}
+/* settings panel below navbar */
+#settings-panel{
+  background:#fff;border-bottom:1px solid #e8eaf2;padding:10px 28px;
+  display:none;align-items:center;gap:16px;flex-wrap:wrap
+}
+#settings-panel.open{display:flex}
+
+/* ── page body ────────────────────────────────────────────────────────────── */
+.wrap{max-width:1600px;margin:0 auto;padding:20px 24px 40px}
+
+/* ── page header ──────────────────────────────────────────────────────────── */
+.page-header{padding:16px 0 18px;display:flex;align-items:center;justify-content:space-between}
+.page-header h1{font-size:1.4rem;font-weight:700;color:#11142d}
+.page-header p{font-size:.82rem;color:#808191;margin-top:3px}
+
+/* ── cards ────────────────────────────────────────────────────────────────── */
+.card{
+  background:#fff;border-radius:16px;padding:20px 22px;margin-bottom:16px;
+  box-shadow:0 4px 20px rgba(17,20,45,.06)
+}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.card-header h2{font-size:.95rem;font-weight:700;color:#11142d}
+.step-badge{
+  background:#f0effe;color:#6c5dd3;font-size:.7rem;font-weight:700;
+  padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em
+}
+
+/* ── two-column grid ──────────────────────────────────────────────────────── */
+.step-grid{display:grid;grid-template-columns:360px 1fr;gap:20px}
+@media(max-width:900px){.step-grid{grid-template-columns:1fr}}
+
+/* ── settings accordion ───────────────────────────────────────────────────── */
+details.settings{
+  background:#fff;border-radius:12px;margin-bottom:16px;
+  box-shadow:0 2px 10px rgba(17,20,45,.05)
+}
+details.settings summary{
+  padding:11px 18px;cursor:pointer;font-weight:600;font-size:.82rem;
+  color:#808191;list-style:none;display:flex;align-items:center;gap:7px;
+  text-transform:uppercase;letter-spacing:.05em
+}
+details.settings summary::before{content:"▶";font-size:.65rem;transition:transform .2s;color:#6c5dd3}
+details.settings[open] summary::before{transform:rotate(90deg)}
+.settings-body{padding:4px 18px 16px;display:flex;gap:12px;flex-wrap:wrap}
+
+/* ── form fields ──────────────────────────────────────────────────────────── */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:.75rem;font-weight:600;color:#808191;text-transform:uppercase;letter-spacing:.04em}
+input[type=text],input[type=number],textarea,select{
+  background:#f8f9fc;border:1.5px solid #e8eaf2;border-radius:10px;
+  padding:8px 11px;font-size:13px;color:#11142d;width:100%;font-family:inherit;
+  transition:border-color .15s,box-shadow .15s
+}
+input[type=text]:focus,input[type=number]:focus,textarea:focus,select:focus{
+  outline:none;border-color:#6c5dd3;background:#fff;
+  box-shadow:0 0 0 3px rgba(108,93,211,.12)
+}
+input[type=range]{width:100%;accent-color:#6c5dd3}
+input[type=checkbox]{accent-color:#6c5dd3;width:14px;height:14px}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ── buttons ──────────────────────────────────────────────────────────────── */
+button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;font-size:13px;font-weight:600;transition:all .15s}
+.btn-primary{
+  background:#6c5dd3;color:#fff;padding:9px 18px;
+  box-shadow:0 4px 12px rgba(108,93,211,.35)
+}
+.btn-primary:hover{background:#5b4dc0;box-shadow:0 6px 18px rgba(108,93,211,.45);transform:translateY(-1px)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-sm{background:#f0effe;color:#6c5dd3;border:none;padding:5px 12px;font-size:12px;border-radius:8px}
+.btn-sm:hover{background:#e4e0fb}
+.btn-row{display:flex;gap:8px;align-items:center;margin-top:2px}
+
+/* ── status boxes ──────────────────────────────────────────────────────────── */
+.status{
+  min-height:24px;font-size:12px;white-space:pre-wrap;
+  background:#f8f9fc;border-radius:8px;padding:7px 10px;margin-top:10px;
+  color:#808191;border-left:3px solid #e8eaf2
+}
+.status.err{color:#fc5a5a;background:#fff5f5;border-left-color:#fc5a5a}
+.status.ok{color:#3dd598;background:#f0fdf9;border-left-color:#3dd598}
+
+/* ── progress bar ──────────────────────────────────────────────────────────── */
+.progress-wrap{margin-top:10px;display:none}
+.progress-track{background:#f0effe;border-radius:20px;height:6px;overflow:hidden;position:relative}
+.progress-fill{
+  background:linear-gradient(90deg,#6c5dd3,#a78bfa);
+  height:100%;width:0;transition:width .35s;border-radius:20px
+}
+.progress-fill.indeterminate{
+  width:38%!important;transition:none;position:absolute;
+  animation:indeterminate 1.4s ease-in-out infinite
+}
+@keyframes indeterminate{
+  0%  {left:-38%}
+  100%{left:100%}
+}
+.progress-label{font-size:11px;color:#808191;margin-top:4px;font-weight:500}
+
+/* ── viewer ────────────────────────────────────────────────────────────────── */
+.viewer-area{position:relative}
+#viewer-placeholder{
+  width:100%;height:480px;background:#f8f9fc;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  color:#c0c3d4;font-size:.9rem;letter-spacing:.02em;
+  border:2px dashed #e8eaf2
+}
+#tiling-thumb{display:none;width:100%;height:620px;object-fit:contain;border-radius:14px;background:#f0f2f9}
+#osd-container{display:none;width:100%;height:620px;border-radius:14px;overflow:hidden;background:#f0f2f9}
+.viewer-controls{
+  display:flex;gap:14px;align-items:center;margin-top:8px;flex-wrap:wrap;
+  background:#f8f9fc;border-radius:10px;padding:6px 12px
+}
+.viewer-controls label{display:flex;align-items:center;gap:5px;font-size:12px;color:#808191;cursor:pointer;font-weight:500}
+#click-status{font-size:12px;color:#6c5dd3;flex:1;font-weight:500}
+
+/* ── gallery ───────────────────────────────────────────────────────────────── */
+.gallery-title{
+  font-size:.72rem;font-weight:700;color:#808191;margin:14px 0 8px;
+  text-transform:uppercase;letter-spacing:.06em
+}
+.gallery{display:flex;flex-wrap:wrap;gap:8px}
+.gallery img{
+  width:224px;height:224px;object-fit:cover;border-radius:10px;cursor:pointer;
+  border:2px solid transparent;transition:all .15s;
+  box-shadow:0 2px 8px rgba(17,20,45,.08)
+}
+.gallery img:hover{border-color:#6c5dd3;transform:translateY(-2px);box-shadow:0 6px 16px rgba(17,20,45,.14)}
+.gallery img.selected{border-color:#fc5a5a;box-shadow:0 0 0 3px rgba(252,90,90,.2)}
+
+/* ── step 2 ────────────────────────────────────────────────────────────────── */
+.step2-controls{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.step2-controls .field{margin-bottom:0;flex:1;min-width:200px}
+
+/* ── counterfactuals ───────────────────────────────────────────────────────── */
+#cf-results{overflow-x:auto;padding:4px 0}
+
+/* ── range row ──────────────────────────────────────────────────────────────── */
+.range-row{display:flex;align-items:center;gap:8px}
+.range-row input[type=range]{flex:1}
+.range-val{font-size:12px;color:#6c5dd3;min-width:30px;text-align:right;font-weight:600}
+
+/* ── step2 results two-column ───────────────────────────────────────────────── */
+.results-grid{display:grid;grid-template-columns:1fr 420px;gap:0}
+.results-right{border-left:1px solid #f0f2f9;padding-left:18px}
+</style>
+</head>
+<body>
+
+<!-- ── navbar ── -->
+<nav class="navbar">
+  <div class="navbar-brand">
+    <img src="/static/logo.png" alt="logo">
+    <div class="brand-text">
+      <div class="brand-title">STAMP + MoPaDi</div>
+      <div class="brand-sub">WSI Counterfactuals Explorer</div>
+    </div>
+  </div>
+  <button id="settings-toggle" onclick="toggleSettings()">⚙ Settings</button>
+</nav>
+<div id="settings-panel">
+  <div class="field" style="margin:0;flex-direction:row;align-items:center;gap:8px">
+    <label style="white-space:nowrap;font-size:.72rem;font-weight:600;color:#808191;text-transform:uppercase;letter-spacing:.04em">Device</label>
+    <input type="text" id="g-device" value="cuda:0" style="width:90px;padding:5px 8px;font-size:12px">
+  </div>
+  <div class="field" style="margin:0;flex-direction:row;align-items:center;gap:8px">
+    <label style="white-space:nowrap;font-size:.72rem;font-weight:600;color:#808191;text-transform:uppercase;letter-spacing:.04em">Output dir</label>
+    <input type="text" id="g-output-dir" value="" style="width:340px;padding:5px 8px;font-size:12px">
+  </div>
+</div>
+
+<div class="wrap">
+
+<div class="page-header">
+  <div>
+    <h1>WSI Counterfactual Analysis Pipeline</h1>
+    <p>Preprocess → Classify with STAMP → View heatmap &amp; top tiles → Generate MoPaDi counterfactuals</p>
+  </div>
+</div>
+
+<!-- ════════════════ STEP 1 ════════════════ -->
+<section class="card">
+  <div class="card-header">
+    <span class="step-badge">Step 1</span>
+    <h2>Tiling &amp; Feature Extraction</h2>
+  </div>
+  <div class="step-grid">
+
+    <!-- controls -->
+    <div>
+      <div class="field">
+        <label>WSI path</label>
+        <input type="text" id="wsi-path" placeholder="/path/to/slide.svs">
+        <div style="margin-top:4px">
+          <span style="font-size:11px;color:#808191;font-weight:500">Example: </span>
+          <a href="#" id="example-wsi-link" style="font-size:11px;color:#6c5dd3;text-decoration:none;font-weight:500"
+             onclick="document.getElementById('wsi-path').value=this.dataset.path;return false">
+            16CO006 (CPTAC-COAD)</a>
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Feature extractor</label>
+          <select id="extractor"></select>
+        </div>
+        <div class="field">
+          <label>Tile size (microns)</label>
+          <input type="number" id="tile-size-um" value="256" step="1" min="64" max="1024">
+        </div>
+      </div>
+      <div class="field">
+        <label>Brightness cutoff &nbsp;<span id="brightness-val">230</span></label>
+        <input type="range" id="brightness-cutoff" min="150" max="255" value="230"
+               oninput="document.getElementById('brightness-val').textContent=this.value">
+      </div>
+      <div class="field">
+        <label>Canny texture cutoff &nbsp;<span id="canny-val">0.02</span></label>
+        <input type="range" id="canny-cutoff" min="0" max="0.15" step="0.005" value="0.02"
+               oninput="document.getElementById('canny-val').textContent=parseFloat(this.value).toFixed(3)">
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="run-btn" onclick="runTilingAndExtract()">
+          ▶ Run tiling + feature extraction
+        </button>
+      </div>
+      <div class="status" id="step1-status">Enter a WSI path and click Run.</div>
+      <div class="progress-wrap" id="extract-progress">
+        <div class="progress-track"><div class="progress-fill" id="extract-fill"></div></div>
+        <div class="progress-label" id="extract-label"></div>
+      </div>
+
+      <!-- ── Step 2 inline ── -->
+      <div style="border-top:1px solid #f0f2f9;margin-top:18px;padding-top:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span class="step-badge">Step 2</span>
+          <span style="font-size:.9rem;font-weight:700;color:#11142d">STAMP Classifier</span>
+        </div>
+        <div class="field">
+          <label>Pretrained classifier</label>
+          <select id="stamp-classifier"></select>
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" id="run-heatmap-btn" onclick="runHeatmap()" disabled>▶ Run classifier + heatmap</button>
+        </div>
+        <div class="status" id="step2-status"></div>
+        <div id="prediction-result" style="display:none;margin-top:12px;padding:12px;background:#f8f7ff;border-radius:10px;border:1px solid #e8e5ff">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#808191;text-transform:uppercase;margin-bottom:8px">Prediction</div>
+          <div id="pred-class" style="font-size:1.1rem;font-weight:800;color:#6c5dd3;margin-bottom:6px"></div>
+          <div id="pred-scores" style="display:flex;flex-direction:column;gap:4px"></div>
+          <div style="margin-top:8px;font-size:10px;color:#aaa">
+            <span style="display:inline-block;width:10px;height:10px;background:#d62728;border-radius:2px;margin-right:4px"></span>high positive
+            <span style="display:inline-block;width:10px;height:10px;background:#1f77b4;border-radius:2px;margin:0 4px 0 10px"></span>high negative
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- viewer -->
+    <div class="viewer-area">
+      <div id="viewer-placeholder">WSI viewer — enter a path and run tiling</div>
+      <img id="tiling-thumb" alt="tiling preview">
+      <div id="osd-container"></div>
+      <div class="viewer-controls">
+        <label><input type="checkbox" id="show-grid" checked onchange="toggleGrid()"> Show tile grid</label>
+        <label><input type="checkbox" id="show-heatmap" checked onchange="toggleHeatmap()"> Show heatmap</label>
+        <span id="click-status"></span>
+        <button class="btn-sm" onclick="clearSelectedTiles()">Clear selected</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ STEP 2 results + STEP 3 config ════════════════ -->
+<section class="card" id="step2-results">
+  <div class="results-grid">
+    <!-- left: tile galleries -->
+    <div>
+      <div class="gallery-title" id="top-tiles-title">Top 5 predictive tiles  ·  or click the WSI above to select manually</div>
+      <div class="gallery" id="top-tiles"></div>
+      <div class="gallery-title" id="selected-tiles-title" style="display:none">Manually selected tiles</div>
+      <div class="gallery" id="selected-tiles"></div>
+    </div>
+    <!-- right: step 3 controls -->
+    <div class="results-right">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span class="step-badge">Step 3</span>
+        <span style="font-size:.9rem;font-weight:700;color:#11142d">MoPaDi Counterfactuals</span>
+      </div>
+      <p style="font-size:11px;color:#808191;margin-bottom:12px">
+        Drag the divider on each image to reveal original ↔ counterfactual.
+      </p>
+      <input type="hidden" id="source-class">
+      <input type="hidden" id="target-dict">
+      <div id="cf-direction" style="display:none;margin-bottom:14px;padding:10px 12px;background:#f8f9fc;border-radius:10px;font-size:13px;font-weight:600;align-items:center;gap:8px">
+        <span id="cf-from" style="color:#6c5dd3"></span>
+        <span style="color:#c0c3d4">→</span>
+        <span id="cf-to" style="color:#3dd598"></span>
+        <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:4px">(counterfactual target)</span>
+      </div>
+      <div class="field">
+        <label>Amplitude &nbsp;<span id="amp-val">0.8</span></label>
+        <input type="range" id="amplitude" min="0.1" max="2.0" step="0.1" value="0.8"
+               oninput="document.getElementById('amp-val').textContent=parseFloat(this.value).toFixed(1)">
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>T_inv &nbsp;<span id="t-inv-val">200</span></label>
+          <input type="range" id="t-inv" min="50" max="500" step="50" value="200"
+                 oninput="document.getElementById('t-inv-val').textContent=this.value">
+        </div>
+        <div class="field">
+          <label>T_step &nbsp;<span id="t-step-val">50</span></label>
+          <input type="range" id="t-step" min="25" max="500" step="25" value="50"
+                 oninput="document.getElementById('t-step-val').textContent=this.value">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="run-cf-btn" onclick="runCounterfactuals()" disabled>▶ Generate counterfactuals</button>
+      </div>
+      <div class="status" id="step3-status" style="margin-top:8px"></div>
+    </div>
+  </div>
+  <!-- counterfactual sliders span full width below -->
+  <div id="cf-results" style="margin-top:16px"></div>
+</section>
+
+</div><!-- .wrap -->
+
+<script>
+'use strict';
+
+function toggleSettings(){
+  const p = document.getElementById('settings-panel');
+  p.classList.toggle('open');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════════════════════
+let osdViewer   = null;   // OpenSeadragon viewer instance
+let gridCanvas  = null;   // canvas overlay for tile grid
+let redrawCanvas = null;  // exposed redraw fn
+let tileGrid    = null;   // {coords, tile_size_slide_px, slide_dims}
+let showGrid    = true;
+let selectedTiles    = [];   // [{path, b64, tile_key}]
+let topTiles         = [];   // [{path, b64}]
+let highlightedCoords = new Set();  // "x,y" strings for orange border
+let cfSelectedPaths  = new Set();   // paths chosen for counterfactual generation
+let cfg           = {};   // from /api/config
+
+// ════════════════════════════════════════════════════════════════════════════
+// Init
+// ════════════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  cfg = await fetch('/api/config').then(r => r.json());
+
+  // Populate extractor dropdown (only virchow2 enabled)
+  const sel = document.getElementById('extractor');
+  cfg.extractor_choices.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = name;
+    if (name === 'virchow2') {
+      opt.selected = true;
+    } else {
+      opt.disabled = true;
+      opt.textContent = name + ' (coming soon)';
+    }
+    sel.appendChild(opt);
+  });
+
+  // Set example WSI path from config
+  if (cfg.example_wsi_path) {
+    const link = document.getElementById('example-wsi-link');
+    if (link) link.dataset.path = cfg.example_wsi_path;
+  }
+
+  // Populate classifier dropdown
+  const clsSel = document.getElementById('stamp-classifier');
+  Object.keys(cfg.classifier_choices).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    clsSel.appendChild(opt);
+  });
+
+  // Set defaults
+  const d = cfg.defaults;
+  document.getElementById('g-device').value    = d.device;
+  document.getElementById('g-output-dir').value = d.output_dir;
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════════════════════
+function setStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className   = 'status' + (type ? ' ' + type : '');
+}
+
+function setProgress(pct, label) {
+  document.getElementById('extract-progress').style.display = 'block';
+  const fill = document.getElementById('extract-fill');
+  if (pct === null) {
+    fill.classList.add('indeterminate');
+  } else {
+    fill.classList.remove('indeterminate');
+    fill.style.width = (pct * 100).toFixed(1) + '%';
+  }
+  document.getElementById('extract-label').textContent = label;
+}
+
+function hideProgress() {
+  document.getElementById('extract-progress').style.display = 'none';
+  document.getElementById('extract-fill').classList.remove('indeterminate');
+  document.getElementById('extract-fill').style.width = '0';
+}
+
+function device()    { return document.getElementById('g-device').value.trim(); }
+function outputDir() { return document.getElementById('g-output-dir').value.trim(); }
+
+// ════════════════════════════════════════════════════════════════════════════
+// OSD viewer
+// ════════════════════════════════════════════════════════════════════════════
+const OSD_IMGS = 'https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/';
+
+function showThumb(b64) {
+  document.getElementById('viewer-placeholder').style.display = 'none';
+  const th = document.getElementById('tiling-thumb');
+  th.src = 'data:image/jpeg;base64,' + b64;
+  th.style.display = 'block';
+  document.getElementById('osd-container').style.display = 'none';
+}
+
+function showOSD(wsiPath, grid, heatmapPath) {
+  document.getElementById('viewer-placeholder').style.display = 'none';
+  document.getElementById('tiling-thumb').style.display = 'none';
+  const el = document.getElementById('osd-container');
+  el.style.display = 'block';
+
+  // /current.dzi always serves the latest loaded slide;
+  // OSD constructs tile URLs as /current_files/{level}/{col}_{row}.jpeg
+  const dzi = '/current.dzi';
+
+  if (!osdViewer) {
+    // ── first time: create viewer ──────────────────────────────────────────
+    osdViewer = OpenSeadragon({
+      element:              el,
+      prefixUrl:            OSD_IMGS,
+      tileSources:          dzi,
+      showNavigator:        true,
+      navigatorPosition:    'BOTTOM_RIGHT',
+      minZoomImageRatio:    0.5,
+      maxZoomPixelRatio:    8,
+      gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
+      animationTime:        0.3,
+    });
+
+    // canvas overlay for tile grid
+    gridCanvas = document.createElement('canvas');
+    gridCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:10;';
+    el.appendChild(gridCanvas);
+
+    function redraw() {
+      if (!tileGrid || !showGrid) {
+        if (gridCanvas) { const c = gridCanvas.getContext('2d'); c.clearRect(0,0,gridCanvas.width,gridCanvas.height); }
+        return;
+      }
+      gridCanvas.width  = el.offsetWidth;
+      gridCanvas.height = el.offsetHeight;
+      const ctx  = gridCanvas.getContext('2d');
+      ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+      const vp = osdViewer.viewport;
+      const b  = vp.getBounds();
+      const tl = vp.viewportToImageCoordinates(new OpenSeadragon.Point(b.x, b.y));
+      const br = vp.viewportToImageCoordinates(new OpenSeadragon.Point(b.x+b.width, b.y+b.height));
+      const m  = tileGrid.tile_size_slide_px;
+      tileGrid.coords.forEach(([sx, sy]) => {
+        if (sx < tl.x-m || sx > br.x+m || sy < tl.y-m || sy > br.y+m) return;
+        const p1 = vp.imageToViewerElementCoordinates(new OpenSeadragon.Point(sx, sy));
+        const p2 = vp.imageToViewerElementCoordinates(new OpenSeadragon.Point(sx+m, sy+m));
+        const isHighlighted = highlightedCoords.has(`${sx},${sy}`);
+        ctx.strokeStyle = isHighlighted ? '#00e5ff' : 'rgba(0,140,0,0.7)';
+        ctx.lineWidth   = isHighlighted ? 2 : 1;
+        ctx.strokeRect(p1.x, p1.y, p2.x-p1.x, p2.y-p1.y);
+      });
+      // second pass: draw highlighted coords that may not be in tileGrid.coords
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth   = 2;
+      highlightedCoords.forEach(key => {
+        const [sx, sy] = key.split(',').map(Number);
+        if (sx < tl.x-m || sx > br.x+m || sy < tl.y-m || sy > br.y+m) return;
+        const p1 = vp.imageToViewerElementCoordinates(new OpenSeadragon.Point(sx, sy));
+        const p2 = vp.imageToViewerElementCoordinates(new OpenSeadragon.Point(sx+m, sy+m));
+        ctx.strokeRect(p1.x, p1.y, p2.x-p1.x, p2.y-p1.y);
+      });
+    }
+    redrawCanvas = redraw;
+    osdViewer.addHandler('animation',        redraw);
+    osdViewer.addHandler('animation-finish', redraw);
+    osdViewer.addHandler('open',             redraw);
+    osdViewer.addHandler('resize',           redraw);
+
+    // click → extract tile
+    osdViewer.addHandler('canvas-click', async (event) => {
+      if (!event.quick || !tileGrid) return;
+      const imgPt = osdViewer.viewport.viewportToImageCoordinates(
+        osdViewer.viewport.pointFromPixel(event.position)
+      );
+      const fd = new FormData();
+      fd.append('x', Math.round(imgPt.x));
+      fd.append('y', Math.round(imgPt.y));
+      try {
+        const resp = await fetch('/api/tile-click', { method: 'POST', body: fd });
+        if (!resp.ok) {
+          const err = await resp.json();
+          document.getElementById('click-status').textContent = '⚠ ' + err.detail;
+          return;
+        }
+        const data = await resp.json();
+        selectedTiles.push({ path: data.path, b64: data.b64, tile_key: data.tile_key });
+        // parse slide coords from tile_key "tile_x{x}_y{y}" and highlight
+        const m = data.tile_key.match(/tile_x(\d+)_y(\d+)/);
+        if (m) { highlightedCoords.add(`${m[1]},${m[2]}`); if (redrawCanvas) redrawCanvas(); }
+        document.getElementById('click-status').textContent =
+          '✅ Added ' + data.tile_key + '  (' + selectedTiles.length + ' selected)';
+        renderSelectedTiles();
+      } catch(e) {
+        document.getElementById('click-status').textContent = '⚠ ' + e.message;
+      }
+    });
+
+  } else {
+    // ── subsequent times: swap tile source ────────────────────────────────
+    osdViewer.world.removeAll();
+    osdViewer.open(dzi);
+  }
+}
+
+function applyHeatmapOverlay(heatmapPath, bounds) {
+  // Remove previous heatmap layer (index 1+; index 0 is the base DZI)
+  while (osdViewer.world.getItemCount() > 1) {
+    osdViewer.world.removeItem(osdViewer.world.getItemAt(1));
+  }
+  if (!heatmapPath || !bounds) return;
+
+  // x/y/width: OSD derives height from image aspect ratio = n_rows/n_cols = bounds.h/bounds.w
+  osdViewer.addTiledImage({
+    tileSource: {
+      type:         'image',
+      url:          '/image?path=' + encodeURIComponent(heatmapPath),
+      buildPyramid: false,
+    },
+    x:       bounds.x,
+    y:       bounds.y,
+    width:   bounds.w,
+    opacity: 0.5,
+  });
+}
+
+function toggleGrid() {
+  showGrid = document.getElementById('show-grid').checked;
+  if (redrawCanvas) redrawCanvas();
+}
+
+function toggleHeatmap() {
+  const on = document.getElementById('show-heatmap').checked;
+  if (osdViewer && osdViewer.world.getItemCount() > 1) {
+    osdViewer.world.getItemAt(1).setOpacity(on ? 0.5 : 0);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Step 1 — tiling + extraction
+// ════════════════════════════════════════════════════════════════════════════
+function runTilingAndExtract() {
+  const wsiPath = document.getElementById('wsi-path').value.trim();
+  if (!wsiPath) { setStatus('step1-status', '⚠ Enter a WSI path first.', 'err'); return; }
+
+  const tileUm    = document.getElementById('tile-size-um').value;
+  const bright    = document.getElementById('brightness-cutoff').value;
+  const canny     = document.getElementById('canny-cutoff').value;
+  const extractor = document.getElementById('extractor').value;
+
+  document.getElementById('run-btn').disabled = true;
+  hideProgress();
+  setStatus('step1-status', '⏳ Opening slide…');
+
+  // Phase 1: tile preview (SSE)
+  const sse = new EventSource(
+    `/api/tile-preview?wsi_path=${encodeURIComponent(wsiPath)}`
+    + `&tile_size_um=${tileUm}&brightness_cutoff=${bright}&canny_cutoff=${canny}`
+  );
+
+  sse.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.error) {
+      setStatus('step1-status', '❌ ' + data.error, 'err');
+      sse.close();
+      document.getElementById('run-btn').disabled = false;
+      return;
+    }
+    showThumb(data.thumb);
+    setStatus('step1-status', `⏳ Detecting foreground tiles… ${data.n_tiles} found so far`);
+
+    if (data.done) {
+      sse.close();
+      tileGrid = data.tile_grid;
+      setStatus('step1-status',
+        `✅ Found ${data.n_tiles} foreground tiles\n⏳ Running feature extraction with ${extractor}…`);
+      startExtraction(wsiPath, extractor, tileUm, bright, canny);
+    }
+  };
+
+  sse.onerror = () => {
+    sse.close();
+    setStatus('step1-status', '❌ Tile preview connection failed.', 'err');
+    document.getElementById('run-btn').disabled = false;
+  };
+}
+
+function startExtraction(wsiPath, extractor, tileUm, bright, canny) {
+  const od = outputDir();
+
+  const sse = new EventSource(
+    `/api/extract?wsi_path=${encodeURIComponent(wsiPath)}`
+    + `&extractor=${encodeURIComponent(extractor)}`
+    + `&device=${encodeURIComponent(device())}`
+    + `&tile_size_um=${tileUm}&brightness_cutoff=${bright}&canny_cutoff=${canny}`
+    + `&output_dir=${encodeURIComponent(od)}`
+  );
+
+  sse.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.error) {
+      setStatus('step1-status', '❌ Extraction failed: ' + data.error, 'err');
+      sse.close();
+      hideProgress();
+      document.getElementById('run-btn').disabled = false;
+      return;
+    }
+    if (data.running) {
+      const m = Math.floor(data.elapsed / 60), s = data.elapsed % 60;
+      const t = m > 0 ? `${m}m ${s}s` : `${s}s`;
+      setProgress(null, `Extracting features… ${t} elapsed`);
+      return;
+    }
+
+    if (data.done) {
+      sse.close();
+      hideProgress();
+      setStatus('step1-status',
+        `✅ Features saved → ${data.h5_path}\n✅ Tiles cached → ${data.tile_cache}`, 'ok');
+      document.getElementById('run-btn').disabled = false;
+      document.getElementById('run-heatmap-btn').disabled = false;
+      // ── show OSD viewer ────────────────────────────────────────────────
+      showOSD(wsiPath, tileGrid, null);
+    }
+  };
+
+  sse.onerror = () => {
+    sse.close();
+    setStatus('step1-status', '❌ Extraction connection failed.', 'err');
+    hideProgress();
+    document.getElementById('run-btn').disabled = false;
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Step 2 — heatmap
+// ════════════════════════════════════════════════════════════════════════════
+async function runHeatmap() {
+  const wsiPath    = document.getElementById('wsi-path').value.trim();
+  const classifier = document.getElementById('stamp-classifier').value;
+  if (!wsiPath || !classifier) {
+    setStatus('step2-status', '⚠ Enter a WSI path and select a classifier.', 'err');
+    return;
+  }
+  setStatus('step2-status', '⏳ Running classifier + heatmap…');
+  const fd = new FormData();
+  fd.append('wsi_path',        wsiPath);
+  fd.append('classifier_name', classifier);
+  fd.append('output_dir',      outputDir());
+  fd.append('device',          device());
+  try {
+    const resp = await fetch('/api/heatmap', { method: 'POST', body: fd });
+    if (!resp.ok) {
+      const err = await resp.json();
+      const msg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
+      setStatus('step2-status', '❌ ' + msg, 'err');
+      return;
+    }
+    const data = await resp.json();
+    setStatus('step2-status', `✅ Done.`, 'ok');
+
+    // Show prediction result
+    if (data.scores && data.predicted_class) {
+      document.getElementById('pred-class').textContent =
+        `${data.predicted_class}  (${(data.scores[data.predicted_class] * 100).toFixed(1)}%)`;
+      const scoresEl = document.getElementById('pred-scores');
+      scoresEl.innerHTML = '';
+      Object.entries(data.scores).sort((a,b) => b[1]-a[1]).forEach(([cls, sc]) => {
+        const pct = (sc * 100).toFixed(1);
+        scoresEl.innerHTML += `
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <span style="width:50px;color:#11142d;font-weight:600">${cls}</span>
+            <div style="flex:1;background:#e8e5ff;border-radius:4px;height:8px">
+              <div style="width:${pct}%;background:#6c5dd3;height:8px;border-radius:4px"></div>
+            </div>
+            <span style="width:36px;text-align:right;color:#808191">${pct}%</span>
+          </div>`;
+      });
+      document.getElementById('prediction-result').style.display = 'block';
+
+      // Auto-populate Step 3 source-class + target-dict from classifier metadata
+      document.getElementById('source-class').value = data.predicted_class;
+      if (data.target_dict) {
+        document.getElementById('target-dict').value = JSON.stringify(data.target_dict);
+        const cfClass = Object.keys(data.target_dict).find(cls => cls !== data.predicted_class);
+        document.getElementById('cf-from').textContent = data.predicted_class;
+        document.getElementById('cf-to').textContent   = cfClass || '?';
+        document.getElementById('cf-direction').style.display = 'flex';
+      }
+    }
+
+    // Highlight top tiles on canvas
+    if (data.top_tile_coords) {
+      data.top_tile_coords.forEach(([x, y]) => highlightedCoords.add(`${x},${y}`));
+      if (redrawCanvas) redrawCanvas();
+    }
+
+    // Show top tiles
+    topTiles = data.top_tile_paths.map(p => ({ path: p, tile_key: p.split('/').pop() }));
+    renderTopTiles();
+
+    // Update OSD with heatmap overlay (higher opacity for clearer visibility)
+    if (data.heatmap_path && osdViewer) {
+      applyHeatmapOverlay(data.heatmap_path, data.overlay_bounds);
+    }
+  } catch(e) {
+    setStatus('step2-status', '❌ ' + e.message, 'err');
+  }
+}
+
+function updateCfButton() {
+  const allTiles = [...topTiles, ...selectedTiles];
+  const hasTiles = allTiles.length > 0;
+  const nChosen  = cfSelectedPaths.size;
+  const btn = document.getElementById('run-cf-btn');
+  btn.disabled = !hasTiles;
+  btn.textContent = nChosen > 0
+    ? `▶ Generate counterfactuals (${nChosen} tile${nChosen>1?'s':''})`
+    : '▶ Generate counterfactuals (all tiles)';
+}
+
+function _makeTileImg(src, path, title) {
+  const img = document.createElement('img');
+  img.src   = src;
+  img.title = title;
+  if (cfSelectedPaths.has(path)) img.classList.add('selected');
+  img.onclick = () => {
+    if (cfSelectedPaths.has(path)) {
+      cfSelectedPaths.delete(path);
+      img.classList.remove('selected');
+    } else {
+      cfSelectedPaths.add(path);
+      img.classList.add('selected');
+    }
+    updateCfButton();
+  };
+  return img;
+}
+
+function renderTopTiles() {
+  const wrap = document.getElementById('top-tiles');
+  wrap.innerHTML = '';
+  document.getElementById('top-tiles-title').style.display = topTiles.length ? 'block' : 'none';
+  topTiles.forEach(t => {
+    wrap.appendChild(_makeTileImg('/image?path=' + encodeURIComponent(t.path), t.path, t.tile_key));
+  });
+  updateCfButton();
+}
+
+function renderSelectedTiles() {
+  const wrap = document.getElementById('selected-tiles');
+  wrap.innerHTML = '';
+  document.getElementById('selected-tiles-title').style.display = selectedTiles.length ? 'block' : 'none';
+  selectedTiles.forEach(t => {
+    wrap.appendChild(_makeTileImg('data:image/png;base64,' + t.b64, t.path, t.tile_key));
+  });
+  updateCfButton();
+}
+
+async function clearSelectedTiles() {
+  selectedTiles = [];
+  topTiles      = [];
+  highlightedCoords.clear();
+  cfSelectedPaths.clear();
+  await fetch('/api/clear-tiles', { method: 'POST' });
+  renderTopTiles();
+  renderSelectedTiles();
+  updateTileSelector();
+  document.getElementById('click-status').textContent = '';
+  document.getElementById('cf-results').innerHTML = '';
+  if (redrawCanvas) redrawCanvas();
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// Step 3 — counterfactuals
+// ════════════════════════════════════════════════════════════════════════════
+async function runCounterfactuals() {
+  const src = document.getElementById('source-class').value.trim();
+  const tgt = document.getElementById('target-dict').value.trim();
+  const allTiles = [...topTiles, ...selectedTiles];
+  const pool = cfSelectedPaths.size > 0
+    ? allTiles.filter(t => cfSelectedPaths.has(t.path))
+    : allTiles;
+  if (!pool.length || !src || !tgt) {
+    setStatus('step3-status', '⚠ Run the classifier first and select at least one tile.', 'err');
+    return;
+  }
+  const amps = [parseFloat(document.getElementById('amplitude').value)];
+
+  const cfDiv = document.getElementById('cf-results');
+  const T_inv  = document.getElementById('t-inv').value;
+  const T_step = document.getElementById('t-step').value;
+  const n = pool.length;
+  const t0 = Date.now();
+  let _lastLog = '';
+  const _timer = setInterval(() => {
+    const s = ((Date.now() - t0) / 1000).toFixed(0);
+    const base = _lastLog || `⏳ Processing ${n} tile${n>1?'s':''} in parallel…`;
+    setStatus('step3-status', `${base}  (${s}s)`);
+  }, 1000);
+  const _logPoller = setInterval(async () => {
+    try {
+      const r = await fetch('/api/cf-log').then(r => r.json());
+      if (r.messages && r.messages.length) {
+        _lastLog = r.messages[r.messages.length - 1];
+      }
+    } catch (_) {}
+  }, 500);
+  setStatus('step3-status', `⏳ Processing ${n} tile${n>1?'s':''} in parallel…`);
+
+  const fd = new FormData();
+  fd.append('tile_paths_str',    JSON.stringify(pool.map(t => t.path)));
+  fd.append('classifier_name',   document.getElementById('stamp-classifier').value);
+  fd.append('source_class',      src);
+  fd.append('target_dict_str',   tgt);
+  fd.append('amplitudes_str',    JSON.stringify(amps));
+  fd.append('T_inv',             T_inv);
+  fd.append('T_step',            T_step);
+  fd.append('device',            device());
+  fd.append('output_dir',        outputDir());
+
+  const resp = await fetch('/api/counterfactuals', { method: 'POST', body: fd });
+  if (!resp.ok) {
+    const err = await resp.json();
+    console.error('counterfactuals error:', err);
+    const msg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
+    clearInterval(_timer); clearInterval(_logPoller);
+    setStatus('step3-status', `⚠ ${msg}`, 'err');
+    return;
+  }
+  clearInterval(_timer); clearInterval(_logPoller);
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  const data = await resp.json();
+  data.results.forEach(r => {
+    const key = r.tile_path || String(r.idx);
+    let container = cfDiv.querySelector(`[data-tile-path="${CSS.escape(key)}"]`);
+    if (container) {
+      // append new slider block(s) to existing flex row
+      const tmp = document.createElement('div');
+      tmp.innerHTML = r.html;
+      const newFlex  = tmp.querySelector('div[style*="flex"]');
+      const existFlex = container.querySelector('div[style*="flex"]');
+      if (newFlex && existFlex) {
+        [...newFlex.children].forEach(child => existFlex.appendChild(child));
+      }
+    } else {
+      container = document.createElement('div');
+      container.dataset.tilePath = key;
+      container.innerHTML = r.html;
+      cfDiv.appendChild(container);
+    }
+  });
+  const errCount = data.errors.length;
+  setStatus('step3-status',
+    errCount ? `⚠ ${n - errCount} ok, ${errCount} failed (${elapsed}s)` : `✅ Done — ${n} tile${n>1?'s':''} in ${elapsed}s`,
+    errCount ? 'err' : 'ok');
+}
+</script>
+</body>
+</html>
